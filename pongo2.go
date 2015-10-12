@@ -5,7 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"path"
+
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -45,45 +45,29 @@ func prepareOptions(opt Options) Options {
 
 func preCompile(opt Options) *Template {
 	tmplMap := make(map[string]*pongo2.Template)
-
-	dirPath := filepath.Dir(opt.Directory)
-	fileInfos, _ := ioutil.ReadDir(dirPath)
-
-	/*
-		for _, fileInfo := range fileInfos {
-			for _, s := range opt.Extensions {
-				if isMatched, _ := regexp.MatchString(".*"+s+"$", fileInfo.Name()); isMatched {
-					t, err := pongo2.FromFile(path.Join(opt.Directory, fileInfo.Name()))
-					if err != nil {
-						log.Fatalf("\"%s\": %v", fileInfo.Name(), err)
-					}
-					tmplMap[strings.Replace(fileInfo.Name(), s, "", -1)] = t
-				}
-			}
-		}
-	*/
 	readDirs(opt.Directory, opt.Extensions, tmplMap)
-
 	return &Template{tmplMap}
 }
 
 func readDirs(path string, ext []string, templates map[string]*pongo2.Template) *map[string]*pongo2.Template {
 	dirPath := filepath.Dir(path)
-	fileInfos, _ := ioutil.ReadDir(dirPath)
+	fileInfos, err := ioutil.ReadDir(dirPath)
+	if err != nil {
+		panic(err)
+	}
 
 	for _, fileInfo := range fileInfos {
 		// If fileInfo is directory, recurse the directory
 		if fileInfo.IsDir() {
-			readDirs(filepath.Join(dirPath, fileInfo.Name()), ext, templates)
-		} else {
-			for _, s := range ext {
-				if isMatched, _ := regexp.MatchString(".*"+s+"$", fileInfo.Name()); isMatched {
-					t, err := pongo2.FromFile(filepath.Join(path, fileInfo.Name()))
-					if err != nil {
-						log.Fatalf("\"%s\": %v", fileInfo.Name(), err)
-					}
-					templates[strings.Replace(fileInfo.Name(), s, "", -1)] = t
+			return readDirs(filepath.Join(dirPath, fileInfo.Name())+"/", ext, templates)
+		}
+		for _, s := range ext {
+			if isMatched, _ := regexp.MatchString(".*"+s+"$", fileInfo.Name()); isMatched {
+				t, err := pongo2.FromFile(filepath.Join(path, fileInfo.Name()))
+				if err != nil {
+					log.Fatalf("\"%s\": %v", fileInfo.Name(), err)
 				}
+				templates[strings.Replace(fileInfo.Name(), s, "", -1)] = t
 			}
 		}
 	}
